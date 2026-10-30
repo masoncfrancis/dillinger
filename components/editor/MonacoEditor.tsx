@@ -1,19 +1,24 @@
 "use client";
 
-import { useRef, useCallback, useEffect, useMemo } from "react";
+import { useRef, useCallback, useEffect, useMemo, useState } from "react";
 import Editor, { OnMount, OnChange } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import { useStore } from "@/stores/store";
 import { countDocumentStats } from "@/lib/document";
 import { useImageUpload } from "@/hooks/useImageUpload";
+import { getDesktopBridge } from "@/lib/desktop";
+
+type FileSaveStatus = "idle" | "saving" | "saved" | "error";
 
 export function MonacoEditor() {
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const keybindingRef = useRef<{ dispose: () => void } | null>(null);
   const keybindingStatusRef = useRef<HTMLDivElement>(null);
   const currentDocument = useStore((state) => state.currentDocument);
+  const isDirty = useStore((state) => state.isDirty);
   const enableNightMode = useStore((state) => state.settings.enableNightMode);
   const enableAutoSave = useStore((state) => state.settings.enableAutoSave);
+  const enableFileAutoSave = useStore((state) => state.settings.enableFileAutoSave);
   const tabSize = useStore((state) => state.settings.tabSize);
   const keybindings = useStore((state) => state.settings.keybindings);
   const enableScrollSync = useStore((state) => state.settings.enableScrollSync);
@@ -24,7 +29,10 @@ export function MonacoEditor() {
   const setEditorScrollPercent = useStore((state) => state.setEditorScrollPercent);
   const setEditorTopLine = useStore((state) => state.setEditorTopLine);
   const setEditorInstance = useStore((state) => state.setEditorInstance);
+  const markCurrentDocumentSaved = useStore((state) => state.markCurrentDocumentSaved);
+  const setCurrentDocumentFileModifiedAt = useStore((state) => state.setCurrentDocumentFileModifiedAt);
   const { uploadFromClipboard } = useImageUpload();
+  const desktop = getDesktopBridge();
 
   const keybindingLabel =
     keybindings === "vim"
@@ -35,6 +43,8 @@ export function MonacoEditor() {
 
   // Debounced persist for auto-save
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const fileAutoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [fileSaveStatus, setFileSaveStatus] = useState<FileSaveStatus>("idle");
 
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
@@ -78,6 +88,10 @@ export function MonacoEditor() {
 
     editor.focus();
   };
+
+  useEffect(() => {
+    setFileSaveStatus("idle");
+  }, [currentDocument?.id, currentDocument?.filePath, enableFileAutoSave]);
 
   useEffect(() => {
     return () => {
@@ -172,6 +186,56 @@ export function MonacoEditor() {
     return () => domNode.removeEventListener("paste", handlePaste);
   }, [uploadFromClipboard]);
 
+  useEffect(() => {
+    if (fileAutoSaveRef.current) {
+      clearTimeout(fileAutoSaveRef.current);
+      fileAutoSaveRef.current = null;
+    }
+
+    if (!desktop || !enableFileAutoSave || !currentDocument?.filePath || !isDirty) {
+      return;
+    }
+
+    setFileSaveStatus("idle");
+    const documentId = currentDocument.id;
+    const content = currentDocument.body;
+    const filePath = currentDocument.filePath;
+    const expectedModifiedAt = currentDocument.fileModifiedAt;
+    let cancelled = false;
+
+    fileAutoSaveRef.current = setTimeout(async () => {
+      setFileSaveStatus("saving");
+
+      try {
+        const saved = await desktop.writeFile({
+          filePath,
+          content,
+          expectedModifiedAt,
+        });
+
+        if (cancelled) return;
+
+        const latestDocument = useStore.getState().currentDocument;
+        if (latestDocument?.id === documentId) {
+          if (!markCurrentDocumentSaved(content, saved.modifiedAt)) {
+            setCurrentDocumentFileModifiedAt(saved.modifiedAt);
+          }
+          setFileSaveStatus("saved");
+        }
+      } catch {
+        if (!cancelled) setFileSaveStatus("error");
+      }
+    }, 1500);
+
+    return () => {
+      cancelled = true;
+      if (fileAutoSaveRef.current) {
+        clearTimeout(fileAutoSaveRef.current);
+        fileAutoSaveRef.current = null;
+      }
+    };
+  }, [currentDocument, desktop, enableFileAutoSave, isDirty, markCurrentDocumentSaved, setCurrentDocumentFileModifiedAt]);
+
   const handleChange: OnChange = useCallback(
     (value: string | undefined) => {
       if (value === undefined) return;
@@ -255,6 +319,13 @@ export function MonacoEditor() {
         </div>
         <div className="flex items-center gap-3">
           <span data-testid="keybinding-mode">{keybindingLabel}</span>
+          {desktop && enableFileAutoSave && currentDocument.filePath && (
+            <span aria-live="polite" data-testid="file-save-status">
+              {fileSaveStatus === "saving" && "Saving…"}
+              {fileSaveStatus === "saved" && "Saved to file"}
+              {fileSaveStatus === "error" && "File save failed"}
+            </span>
+          )}
           <div
             ref={keybindingStatusRef}
             className="min-h-4 min-w-12 text-right text-plum"

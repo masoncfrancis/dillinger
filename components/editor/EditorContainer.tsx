@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, memo } from "react";
 import dynamic from "next/dynamic";
 import { X, Upload } from "lucide-react";
 import { Navbar } from "@/components/navbar/Navbar";
-import { LogoBar } from "@/components/ads/LogoBar";
 import { DocumentTitle } from "@/components/editor/DocumentTitle";
 import { MonacoEditor } from "@/components/editor/MonacoEditor";
 import { MarkdownPreview } from "@/components/preview/MarkdownPreview";
@@ -238,7 +237,6 @@ function EditorContent() {
             </div>
           )}
         </div>
-        <LogoBar />
       </main>
 
       <SettingsModal />

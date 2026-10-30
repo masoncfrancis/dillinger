@@ -13,28 +13,9 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("ads logobar is visible in the footer", async ({ page }) => {
+test("does not render advertising", async ({ page }) => {
   await page.goto("/");
 
-  const logobar = page.locator("#logobar");
-  await expect(logobar).toBeVisible();
-
-  const box = await logobar.boundingBox();
-  expect(box).not.toBeNull();
-  expect(box!.height).toBeGreaterThanOrEqual(36);
-});
-
-test("ads logobar is anchored at the bottom of the main area", async ({ page }) => {
-  await page.goto("/");
-
-  const logobar = page.locator("#logobar");
-  await expect(logobar).toBeVisible();
-
-  const viewportSize = page.viewportSize()!;
-  const box = await logobar.boundingBox()!;
-  expect(box).not.toBeNull();
-
-  // Logobar bottom edge should be at or near the viewport bottom
-  const logobarBottom = box!.y + box!.height;
-  expect(logobarBottom).toBeGreaterThan(viewportSize.height - 10);
+  await expect(page.locator("#logobar")).toHaveCount(0);
+  await expect(page.locator('script[src*="servedby-buysellads"]')).toHaveCount(0);
 });

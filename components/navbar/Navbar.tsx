@@ -5,15 +5,18 @@ import { useStore } from "@/stores/store";
 import { useToast } from "@/components/ui/Toast";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { importDocumentFile } from "@/lib/import";
+import { getDesktopBridge } from "@/lib/desktop";
 import {
   Menu,
   Eye,
   EyeOff,
   Settings,
   Download,
+  FolderOpen,
   FileText,
   FileCode,
   FileType,
+  Save,
   Maximize2,
   Upload,
   ImagePlus,
@@ -34,12 +37,17 @@ export function Navbar() {
   const togglePreview = useStore((state) => state.togglePreview);
   const previewVisible = useStore((state) => state.previewVisible);
   const currentDocument = useStore((state) => state.currentDocument);
+  const isDirty = useStore((state) => state.isDirty);
+  const createDocument = useStore((state) => state.createDocument);
   const createImportedDocument = useStore((state) => state.createImportedDocument);
+  const setCurrentDocumentFilePath = useStore((state) => state.setCurrentDocumentFilePath);
   const insertMarkdownAtCursor = useStore((state) => state.insertMarkdownAtCursor);
   const setZenMode = useStore((state) => state.setZenMode);
   const toggleShortcuts = useStore((state) => state.toggleShortcuts);
+  const persist = useStore((state) => state.persist);
   const { notify } = useToast();
   const { upload } = useImageUpload();
+  const desktop = getDesktopBridge();
 
   const [exportOpen, setExportOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -142,6 +150,154 @@ export function Navbar() {
     }
   }, [createImportedDocument, notify]);
 
+  const handleOpenLocalFile = useCallback(async () => {
+    const bridge = getDesktopBridge();
+    if (!bridge) return;
+
+    try {
+      const opened = await bridge.openFile();
+      if (!opened) return;
+
+      const lowerName = opened.fileName.toLowerCase();
+      const file = new File([opened.content], opened.fileName, {
+        type: lowerName.endsWith(".html") || lowerName.endsWith(".htm")
+          ? "text/html"
+          : "text/markdown",
+      });
+      const imported = await importDocumentFile(file);
+      createImportedDocument(opened.fileName, imported.body, opened.filePath, opened.modifiedAt);
+      notify(`Opened "${opened.fileName}"`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Failed to open file");
+    }
+  }, [createImportedDocument, notify]);
+
+  const handleSaveLocalFile = useCallback(async (saveAs = false): Promise<boolean> => {
+    const bridge = getDesktopBridge();
+    if (!bridge || !currentDocument) return false;
+
+    try {
+      const saved = await bridge.saveFile({
+        filePath: saveAs ? undefined : currentDocument.filePath,
+        fileName: currentDocument.title,
+        content: currentDocument.body,
+      });
+
+      if (!saved) return false;
+
+      setCurrentDocumentFilePath(saved.filePath, saved.modifiedAt);
+      persist();
+      notify(`Saved "${saved.fileName}"`);
+      return true;
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Failed to save file");
+      return false;
+    }
+  }, [currentDocument, notify, persist, setCurrentDocumentFilePath]);
+
+  const handleCloseRequest = useCallback(async (shouldQuit = false) => {
+    if (!desktop) return;
+
+    if (!isDirty) {
+      if (shouldQuit) {
+        await desktop.quit();
+      } else {
+        await desktop.confirmClose(true);
+      }
+      return;
+    }
+
+    const choice = await desktop.confirmUnsavedChanges();
+    if (choice === 0) {
+      const saved = await handleSaveLocalFile();
+      if (saved) {
+        if (shouldQuit) {
+          await desktop.quit();
+        } else {
+          await desktop.confirmClose(true);
+        }
+      } else {
+        await desktop.confirmClose(false);
+      }
+    } else if (choice === 1) {
+      if (shouldQuit) {
+        await desktop.quit();
+      } else {
+        await desktop.confirmClose(true);
+      }
+    } else {
+      await desktop.confirmClose(false);
+    }
+  }, [desktop, handleSaveLocalFile, isDirty]);
+
+  const handleMenuAction = useCallback((action: string) => {
+    switch (action) {
+      case "new":
+        createDocument();
+        break;
+      case "open":
+        void handleOpenLocalFile();
+        break;
+      case "save":
+        void handleSaveLocalFile();
+        break;
+      case "save-as":
+        void handleSaveLocalFile(true);
+        break;
+      case "toggle-sidebar":
+        toggleSidebar();
+        break;
+      case "toggle-preview":
+        togglePreview();
+        break;
+      case "zen":
+        setZenMode(true);
+        break;
+      case "shortcuts":
+        toggleShortcuts();
+        break;
+      case "about":
+        notify("Dillinger desktop editor");
+        break;
+      case "quit":
+        void handleCloseRequest(true);
+        break;
+    }
+  }, [createDocument, handleCloseRequest, handleOpenLocalFile, handleSaveLocalFile, notify, setZenMode, togglePreview, toggleShortcuts, toggleSidebar]);
+
+  useEffect(() => {
+    if (!desktop) return;
+
+    const removeMenuListener = desktop.onMenuAction(handleMenuAction);
+    const removeCloseListener = desktop.onRequestClose(() => {
+      void handleCloseRequest();
+    });
+
+    return () => {
+      removeMenuListener();
+      removeCloseListener();
+    };
+  }, [desktop, handleCloseRequest, handleMenuAction]);
+
+  useEffect(() => {
+    if (!desktop) return;
+
+    const handleFileShortcut = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey)) return;
+
+      if (event.key.toLowerCase() === "o") {
+        event.preventDefault();
+        void handleOpenLocalFile();
+      } else if (event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        void handleSaveLocalFile(event.shiftKey);
+      }
+    };
+
+    document.addEventListener("keydown", handleFileShortcut);
+    return () => document.removeEventListener("keydown", handleFileShortcut);
+  }, [desktop, handleOpenLocalFile, handleSaveLocalFile]);
+
   const handleImageSelection = useCallback(async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -179,6 +335,47 @@ export function Navbar() {
 
       {/* Right side */}
       <div className="flex items-center gap-2">
+        {desktop && (
+          <>
+            <button
+              onClick={() => void handleOpenLocalFile()}
+              aria-label="Open local file"
+              title="Open local file (⌘O)"
+              data-testid="open-local-file"
+              className="text-text-invert hover:text-plum transition-all active:scale-[0.97] px-3 py-2
+                         flex items-center gap-1 text-sm rounded
+                         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum focus-visible:ring-offset-2 focus-visible:ring-offset-bg-navbar"
+            >
+              <FolderOpen size={18} />
+              <span className="hidden sm:inline">Open</span>
+            </button>
+            <button
+              onClick={() => void handleSaveLocalFile()}
+              aria-label="Save local file"
+              title="Save local file (⌘S)"
+              data-testid="save-local-file"
+              className="text-text-invert hover:text-plum transition-all active:scale-[0.97] px-3 py-2
+                         flex items-center gap-1 text-sm rounded
+                         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum focus-visible:ring-offset-2 focus-visible:ring-offset-bg-navbar"
+            >
+              <Save size={18} />
+              <span className="hidden sm:inline">Save</span>
+            </button>
+            <button
+              onClick={() => void handleSaveLocalFile(true)}
+              aria-label="Save local file as"
+              title="Save local file as (⌘⇧S)"
+              data-testid="save-local-file-as"
+              className="text-text-invert hover:text-plum transition-all active:scale-[0.97] px-3 py-2
+                         flex items-center gap-1 text-sm rounded
+                         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum focus-visible:ring-offset-2 focus-visible:ring-offset-bg-navbar"
+            >
+              <FileText size={18} />
+              <span className="hidden lg:inline">Save As</span>
+            </button>
+          </>
+        )}
+
         <button
           onClick={() => importInputRef.current?.click()}
           aria-label="Import file"

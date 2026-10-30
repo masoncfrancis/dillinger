@@ -72,6 +72,14 @@ export function SettingsModal() {
             onChange={(v) => updateSettings({ enableAutoSave: v })}
           />
 
+          {/* Local file auto-save */}
+          <SettingToggle
+            id="file-auto-save"
+            label="Auto Save Local File"
+            checked={settings.enableFileAutoSave}
+            onChange={(v) => updateSettings({ enableFileAutoSave: v })}
+          />
+
           {/* Word Count */}
           <SettingToggle
             id="word-count"

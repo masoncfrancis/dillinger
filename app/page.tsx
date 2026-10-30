@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import nextDynamic from "next/dynamic";
 import { EditorSkeleton } from "@/components/ui/Skeleton";
+import { WebOnly } from "@/components/ui/WebOnly";
 
 export const metadata: Metadata = {
   title: "Markdown Editor — Online, Free, with Live Preview | Dillinger",
@@ -243,7 +244,9 @@ export default function Page() {
   return (
     <>
       <Editor />
-      <HomepageSeoContent />
+      <WebOnly>
+        <HomepageSeoContent />
+      </WebOnly>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{

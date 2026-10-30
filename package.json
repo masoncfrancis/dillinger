@@ -102,7 +102,16 @@
       "target": "dmg"
     },
     "linux": {
-      "target": "AppImage"
-    }
+      "target": "AppImage",
+      "category": "Office"
+    },
+    "fileAssociations": [
+      {
+        "ext": ["md", "markdown", "txt", "html", "htm"],
+        "name": "Markdown Document",
+        "description": "Markdown and text document",
+        "role": "Editor"
+      }
+    ]
   }
 }

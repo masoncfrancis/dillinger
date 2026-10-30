@@ -91,6 +91,27 @@ describe("useStore", () => {
     expect(useStore.getState().currentDocument?.filePath).toBe("C:\\Notes\\notes.md");
   });
 
+  it("marks matching native file content as saved", () => {
+    useStore.getState().createImportedDocument("notes.md", "# Notes", "C:\\Notes\\notes.md", 10);
+    useStore.getState().updateDocumentBody("# Updated");
+
+    const saved = useStore.getState().markCurrentDocumentSaved("# Updated", 20);
+
+    expect(saved).toBe(true);
+    expect(useStore.getState().isDirty).toBe(false);
+    expect(useStore.getState().currentDocument?.fileModifiedAt).toBe(20);
+  });
+
+  it("does not clear dirty state for stale native file content", () => {
+    useStore.getState().createImportedDocument("notes.md", "# Notes", "C:\\Notes\\notes.md", 10);
+    useStore.getState().updateDocumentBody("# Latest");
+
+    const saved = useStore.getState().markCurrentDocumentSaved("# Older", 20);
+
+    expect(saved).toBe(false);
+    expect(useStore.getState().isDirty).toBe(true);
+  });
+
   it("inserts markdown through the Monaco editor when a selection exists", () => {
     const document = {
       id: "doc-1",

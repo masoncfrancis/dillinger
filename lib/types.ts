@@ -4,6 +4,7 @@ export interface Document {
   body: string;
   createdAt: string;
   filePath?: string;
+  fileModifiedAt?: number;
   github?: {
     sha: string;
     path: string;
@@ -15,6 +16,7 @@ export interface Document {
 
 export interface UserSettings {
   enableAutoSave: boolean;
+  enableFileAutoSave: boolean;
   enableWordsCount: boolean;
   enableCharactersCount: boolean;
   enableScrollSync: boolean;
@@ -26,6 +28,7 @@ export interface UserSettings {
 
 export const DEFAULT_SETTINGS: UserSettings = {
   enableAutoSave: true,
+  enableFileAutoSave: false,
   enableWordsCount: true,
   enableCharactersCount: true,
   enableScrollSync: true,

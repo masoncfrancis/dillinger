@@ -12,10 +12,17 @@ export function DocumentTitle() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState("");
+  const documentTitle = currentDocument?.title || DEFAULT_DOCUMENT_TITLE;
 
   useEffect(() => {
     setTitle(currentDocument?.title || "");
   }, [currentDocument?.title]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    document.title = `${isDirty ? "• " : ""}${documentTitle} - Dillinger`;
+  }, [documentTitle, isDirty]);
 
   const inputRef = useCallback((node: HTMLInputElement | null) => {
     if (node) {

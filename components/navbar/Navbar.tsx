@@ -37,11 +37,14 @@ export function Navbar() {
   const togglePreview = useStore((state) => state.togglePreview);
   const previewVisible = useStore((state) => state.previewVisible);
   const currentDocument = useStore((state) => state.currentDocument);
+  const isDirty = useStore((state) => state.isDirty);
+  const createDocument = useStore((state) => state.createDocument);
   const createImportedDocument = useStore((state) => state.createImportedDocument);
   const setCurrentDocumentFilePath = useStore((state) => state.setCurrentDocumentFilePath);
   const insertMarkdownAtCursor = useStore((state) => state.insertMarkdownAtCursor);
   const setZenMode = useStore((state) => state.setZenMode);
   const toggleShortcuts = useStore((state) => state.toggleShortcuts);
+  const persist = useStore((state) => state.persist);
   const { notify } = useToast();
   const { upload } = useImageUpload();
   const desktop = getDesktopBridge();
@@ -162,16 +165,16 @@ export function Navbar() {
           : "text/markdown",
       });
       const imported = await importDocumentFile(file);
-      createImportedDocument(opened.fileName, imported.body, opened.filePath);
+      createImportedDocument(opened.fileName, imported.body, opened.filePath, opened.modifiedAt);
       notify(`Opened "${opened.fileName}"`);
     } catch (error) {
       notify(error instanceof Error ? error.message : "Failed to open file");
     }
   }, [createImportedDocument, notify]);
 
-  const handleSaveLocalFile = useCallback(async (saveAs = false) => {
+  const handleSaveLocalFile = useCallback(async (saveAs = false): Promise<boolean> => {
     const bridge = getDesktopBridge();
-    if (!bridge || !currentDocument) return;
+    if (!bridge || !currentDocument) return false;
 
     try {
       const saved = await bridge.saveFile({
@@ -180,14 +183,101 @@ export function Navbar() {
         content: currentDocument.body,
       });
 
-      if (!saved) return;
+      if (!saved) return false;
 
-      setCurrentDocumentFilePath(saved.filePath);
+      setCurrentDocumentFilePath(saved.filePath, saved.modifiedAt);
+      persist();
       notify(`Saved "${saved.fileName}"`);
+      return true;
     } catch (error) {
       notify(error instanceof Error ? error.message : "Failed to save file");
+      return false;
     }
-  }, [currentDocument, notify, setCurrentDocumentFilePath]);
+  }, [currentDocument, notify, persist, setCurrentDocumentFilePath]);
+
+  const handleCloseRequest = useCallback(async (shouldQuit = false) => {
+    if (!desktop) return;
+
+    if (!isDirty) {
+      if (shouldQuit) {
+        await desktop.quit();
+      } else {
+        await desktop.confirmClose(true);
+      }
+      return;
+    }
+
+    const choice = await desktop.confirmUnsavedChanges();
+    if (choice === 0) {
+      const saved = await handleSaveLocalFile();
+      if (saved) {
+        if (shouldQuit) {
+          await desktop.quit();
+        } else {
+          await desktop.confirmClose(true);
+        }
+      } else {
+        await desktop.confirmClose(false);
+      }
+    } else if (choice === 1) {
+      if (shouldQuit) {
+        await desktop.quit();
+      } else {
+        await desktop.confirmClose(true);
+      }
+    } else {
+      await desktop.confirmClose(false);
+    }
+  }, [desktop, handleSaveLocalFile, isDirty]);
+
+  const handleMenuAction = useCallback((action: string) => {
+    switch (action) {
+      case "new":
+        createDocument();
+        break;
+      case "open":
+        void handleOpenLocalFile();
+        break;
+      case "save":
+        void handleSaveLocalFile();
+        break;
+      case "save-as":
+        void handleSaveLocalFile(true);
+        break;
+      case "toggle-sidebar":
+        toggleSidebar();
+        break;
+      case "toggle-preview":
+        togglePreview();
+        break;
+      case "zen":
+        setZenMode(true);
+        break;
+      case "shortcuts":
+        toggleShortcuts();
+        break;
+      case "about":
+        notify("Dillinger desktop editor");
+        break;
+      case "quit":
+        void handleCloseRequest(true);
+        break;
+    }
+  }, [createDocument, handleCloseRequest, handleOpenLocalFile, handleSaveLocalFile, notify, setZenMode, togglePreview, toggleShortcuts, toggleSidebar]);
+
+  useEffect(() => {
+    if (!desktop) return;
+
+    const removeMenuListener = desktop.onMenuAction(handleMenuAction);
+    const removeCloseListener = desktop.onRequestClose(() => {
+      void handleCloseRequest();
+    });
+
+    return () => {
+      removeMenuListener();
+      removeCloseListener();
+    };
+  }, [desktop, handleCloseRequest, handleMenuAction]);
 
   useEffect(() => {
     if (!desktop) return;

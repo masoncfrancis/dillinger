@@ -24,8 +24,10 @@ interface AppState {
 
   // Document Actions
   createDocument: () => void;
-  createImportedDocument: (title: string, body: string, filePath?: string) => void;
-  setCurrentDocumentFilePath: (filePath: string) => void;
+  createImportedDocument: (title: string, body: string, filePath?: string, fileModifiedAt?: number) => void;
+  setCurrentDocumentFilePath: (filePath: string, fileModifiedAt?: number) => void;
+  setCurrentDocumentFileModifiedAt: (fileModifiedAt: number) => void;
+  markCurrentDocumentSaved: (body: string, fileModifiedAt: number) => boolean;
   selectDocument: (id: string) => void;
   deleteDocument: (id: string) => void;
   updateDocumentBody: (body: string) => void;
@@ -47,7 +49,7 @@ interface AppState {
 
   // Persistence
   hydrate: () => void;
-  persist: () => void;
+  persist: (clearDirty?: boolean) => void;
 }
 
 const createDefaultDocument = (): Document => ({
@@ -82,12 +84,12 @@ export const useStore = create<AppState>((set, get) => ({
     get().persist();
   },
 
-  createImportedDocument: (title: string, body: string, filePath?: string) => {
+  createImportedDocument: (title: string, body: string, filePath?: string, fileModifiedAt?: number) => {
     const newDoc = {
       ...createDefaultDocument(),
       title,
       body,
-      ...(filePath ? { filePath } : {}),
+      ...(filePath ? { filePath, fileModifiedAt } : {}),
     };
 
     set((state) => ({
@@ -97,17 +99,48 @@ export const useStore = create<AppState>((set, get) => ({
     get().persist();
   },
 
-  setCurrentDocumentFilePath: (filePath: string) => {
+  setCurrentDocumentFilePath: (filePath: string, fileModifiedAt?: number) => {
     const { currentDocument, documents } = get();
     if (!currentDocument) return;
 
-    const updated = { ...currentDocument, filePath };
+    const updated = {
+      ...currentDocument,
+      filePath,
+      ...(fileModifiedAt !== undefined ? { fileModifiedAt } : {}),
+    };
     const updatedDocs = documents.map((doc) =>
       doc.id === currentDocument.id ? updated : doc
     );
 
     set({ currentDocument: updated, documents: updatedDocs });
     get().persist();
+  },
+
+  markCurrentDocumentSaved: (body: string, fileModifiedAt: number) => {
+    const { currentDocument, documents } = get();
+    if (!currentDocument || currentDocument.body !== body) return false;
+
+    const updated = { ...currentDocument, fileModifiedAt };
+    const updatedDocs = documents.map((doc) =>
+      doc.id === currentDocument.id ? updated : doc
+    );
+
+    set({ currentDocument: updated, documents: updatedDocs, isDirty: false });
+    get().persist(false);
+    return true;
+  },
+
+  setCurrentDocumentFileModifiedAt: (fileModifiedAt: number) => {
+    const { currentDocument, documents } = get();
+    if (!currentDocument) return;
+
+    const updated = { ...currentDocument, fileModifiedAt };
+    const updatedDocs = documents.map((doc) =>
+      doc.id === currentDocument.id ? updated : doc
+    );
+
+    set({ currentDocument: updated, documents: updatedDocs });
+    get().persist(false);
   },
 
   selectDocument: (id: string) => {
@@ -238,7 +271,7 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  persist: () => {
+  persist: (clearDirty = true) => {
     if (typeof window === "undefined") return;
 
     const { documents, currentDocument, settings } = get();
@@ -247,7 +280,7 @@ export const useStore = create<AppState>((set, get) => ({
       localStorage.setItem("files", JSON.stringify(documents));
       localStorage.setItem("currentDocument", JSON.stringify(currentDocument));
       localStorage.setItem("profileV3", JSON.stringify(settings));
-      set({ isDirty: false });
+      if (clearDirty) set({ isDirty: false });
     } catch (e) {
       console.error("Failed to persist state:", e);
     }

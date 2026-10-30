@@ -24,7 +24,8 @@ interface AppState {
 
   // Document Actions
   createDocument: () => void;
-  createImportedDocument: (title: string, body: string) => void;
+  createImportedDocument: (title: string, body: string, filePath?: string) => void;
+  setCurrentDocumentFilePath: (filePath: string) => void;
   selectDocument: (id: string) => void;
   deleteDocument: (id: string) => void;
   updateDocumentBody: (body: string) => void;
@@ -81,17 +82,31 @@ export const useStore = create<AppState>((set, get) => ({
     get().persist();
   },
 
-  createImportedDocument: (title: string, body: string) => {
+  createImportedDocument: (title: string, body: string, filePath?: string) => {
     const newDoc = {
       ...createDefaultDocument(),
       title,
       body,
+      ...(filePath ? { filePath } : {}),
     };
 
     set((state) => ({
       documents: [...state.documents, newDoc],
       currentDocument: newDoc,
     }));
+    get().persist();
+  },
+
+  setCurrentDocumentFilePath: (filePath: string) => {
+    const { currentDocument, documents } = get();
+    if (!currentDocument) return;
+
+    const updated = { ...currentDocument, filePath };
+    const updatedDocs = documents.map((doc) =>
+      doc.id === currentDocument.id ? updated : doc
+    );
+
+    set({ currentDocument: updated, documents: updatedDocs });
     get().persist();
   },
 

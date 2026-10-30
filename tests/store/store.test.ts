@@ -81,6 +81,16 @@ describe("useStore", () => {
     expect(state.documents[0]?.id).toBe(originalId);
   });
 
+  it("keeps the local file path on an imported document", () => {
+    useStore.getState().createImportedDocument(
+      "notes.md",
+      "# Notes",
+      "C:\\Notes\\notes.md"
+    );
+
+    expect(useStore.getState().currentDocument?.filePath).toBe("C:\\Notes\\notes.md");
+  });
+
   it("inserts markdown through the Monaco editor when a selection exists", () => {
     const document = {
       id: "doc-1",

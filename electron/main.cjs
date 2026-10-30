@@ -1,5 +1,6 @@
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
 const { spawn } = require("node:child_process");
+const fs = require("node:fs/promises");
 const path = require("node:path");
 const http = require("node:http");
 
@@ -8,6 +9,71 @@ const DESKTOP_PORT = 3210;
 
 let mainWindow;
 let nextServer;
+
+const documentFilters = [
+  { name: "Markdown and text", extensions: ["md", "markdown", "txt"] },
+  { name: "HTML", extensions: ["html", "htm"] },
+  { name: "All files", extensions: ["*"] },
+];
+
+function assertString(value, name) {
+  if (typeof value !== "string") {
+    throw new TypeError(`${name} must be a string`);
+  }
+}
+
+ipcMain.handle("file:open", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Open document",
+    properties: ["openFile"],
+    filters: documentFilters,
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return null;
+  }
+
+  const filePath = result.filePaths[0];
+  return {
+    filePath,
+    fileName: path.basename(filePath),
+    content: await fs.readFile(filePath, "utf8"),
+  };
+});
+
+ipcMain.handle("file:save", async (_event, request) => {
+  if (!request || typeof request !== "object") {
+    throw new TypeError("A save request is required");
+  }
+
+  const { filePath, fileName, content } = request;
+  assertString(content, "content");
+
+  let targetPath = filePath;
+  if (targetPath !== undefined && targetPath !== null) {
+    assertString(targetPath, "filePath");
+  }
+
+  if (!targetPath) {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: "Save document",
+      defaultPath: fileName || "document.md",
+      filters: documentFilters,
+    });
+
+    if (result.canceled || !result.filePath) {
+      return null;
+    }
+
+    targetPath = result.filePath;
+  }
+
+  await fs.writeFile(targetPath, content, "utf8");
+  return {
+    filePath: targetPath,
+    fileName: path.basename(targetPath),
+  };
+});
 
 function getProductionServerPath() {
   return path.join(process.resourcesPath, "next-server", "server.js");

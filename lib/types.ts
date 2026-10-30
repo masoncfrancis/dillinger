@@ -3,6 +3,7 @@ export interface Document {
   title: string;
   body: string;
   createdAt: string;
+  filePath?: string;
   github?: {
     sha: string;
     path: string;

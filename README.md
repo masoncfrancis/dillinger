@@ -61,9 +61,8 @@ Create a Windows installer with:
 npm run electron:package
 ```
 
-The desktop shell currently provides a secure Electron runtime and bundled
-Next.js server. Native file dialogs, filesystem persistence, and desktop OAuth
-are planned follow-up capabilities; cloud integrations continue to use the
+The desktop shell provides secure native Open, Save, and Save As dialogs for
+Markdown, text, and HTML files. Cloud integrations continue to use the
 existing web API during this transition.
 
 ---

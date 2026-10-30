@@ -47,6 +47,25 @@ npm run dev
 
 Open → [http://localhost:3000](http://localhost:3000)
 
+### Desktop Development
+
+The Electron shell runs the same editor in a native desktop window:
+
+```bash
+npm run electron:dev
+```
+
+Create a Windows installer with:
+
+```bash
+npm run electron:package
+```
+
+The desktop shell currently provides a secure Electron runtime and bundled
+Next.js server. Native file dialogs, filesystem persistence, and desktop OAuth
+are planned follow-up capabilities; cloud integrations continue to use the
+existing web API during this transition.
+
 ---
 
 ## 🧱 Requirements
@@ -214,7 +233,9 @@ npm start
 
 ```bash
 npm run dev              # Start dev server
+npm run electron:dev     # Start the Electron development shell
 npm run build            # Production build
+npm run electron:package # Build desktop installers
 npm start                # Start production server
 npm run lint             # ESLint
 npm run test             # Unit + E2E tests

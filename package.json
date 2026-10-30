@@ -4,8 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "electron:dev": "concurrently -k \"next dev -H 127.0.0.1 -p 3000\" \"wait-on http://127.0.0.1:3000 && electron .\"",
     "build": "next build",
+    "build:desktop": "next build && node scripts/prepare-electron-server.cjs",
     "start": "next start",
+    "electron:start": "electron .",
+    "electron:package": "npm run build:desktop && electron-builder",
     "start:test": "next start -H 127.0.0.1 -p 3005",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
@@ -58,13 +62,47 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@vitest/coverage-v8": "^4.1.2",
+    "concurrently": "^9.2.1",
+    "electron": "^39.1.2",
+    "electron-builder": "^26.0.12",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
     "jsdom": "^28.1.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "typescript": "^5",
+    "wait-on": "^8.0.3",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.0.18"
+  },
+  "main": "electron/main.cjs",
+  "build": {
+    "appId": "io.dillinger.editor",
+    "productName": "Dillinger",
+    "asar": true,
+    "files": [
+      "electron/**/*",
+      ".next/**/*",
+      "public/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": ".next/standalone",
+        "to": "next-server"
+      }
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
   }
 }

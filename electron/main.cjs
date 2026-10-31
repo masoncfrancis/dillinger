@@ -126,6 +126,60 @@ ipcMain.handle("file:write", async (_event, request) => {
   };
 });
 
+ipcMain.handle("file:print-pdf", async (_event, request) => {
+  if (!request || typeof request !== "object") {
+    throw new TypeError("A print request is required");
+  }
+
+  const { html, fileName } = request;
+  assertString(html, "html");
+  assertString(fileName, "fileName");
+
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: "Export PDF",
+    defaultPath: fileName,
+    filters: [{ name: "PDF", extensions: ["pdf"] }],
+  });
+
+  if (result.canceled || !result.filePath) {
+    return null;
+  }
+
+  const printWindow = new BrowserWindow({
+    show: false,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+
+  try {
+    await printWindow.loadURL(`data:text/html;charset=UTF-8,${encodeURIComponent(html)}`);
+    const pdf = await printWindow.webContents.printToPDF({
+      printBackground: true,
+      pageSize: "A4",
+      margins: {
+        marginType: "custom",
+        top: 0.79,
+        bottom: 0.79,
+        left: 0.79,
+        right: 0.79,
+      },
+    });
+    await fs.writeFile(result.filePath, pdf);
+
+    return {
+      filePath: result.filePath,
+      fileName: path.basename(result.filePath),
+    };
+  } finally {
+    if (!printWindow.isDestroyed()) {
+      printWindow.destroy();
+    }
+  }
+});
+
 ipcMain.handle("app:confirm-unsaved-changes", async () => {
   const result = await dialog.showMessageBox(mainWindow, {
     type: "warning",

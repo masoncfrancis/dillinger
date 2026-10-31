@@ -9,4 +9,14 @@ const nextConfig = {
   },
 };
 
+if (process.env.NEXT_DESKTOP_BUILD === "1") {
+  nextConfig.experimental.outputFileTracingExcludes = {
+    "*": [
+      "node_modules/@sparticuz/chromium/**",
+      "node_modules/puppeteer-core/**",
+      "node_modules/@puppeteer/**",
+    ],
+  };
+}
+
 export default nextConfig;

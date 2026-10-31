@@ -23,6 +23,11 @@ interface DesktopSavedFile {
   modifiedAt: number;
 }
 
+interface DesktopPrintedFile {
+  filePath: string;
+  fileName: string;
+}
+
 interface Window {
   dillingerDesktop?: {
     isDesktop: true;
@@ -30,6 +35,7 @@ interface Window {
     openFile: () => Promise<DesktopOpenFile | null>;
     saveFile: (request: DesktopSaveRequest) => Promise<DesktopSavedFile | null>;
     writeFile: (request: DesktopWriteFileRequest) => Promise<DesktopSavedFile>;
+    printPdf: (request: { html: string; fileName: string }) => Promise<DesktopPrintedFile | null>;
     confirmUnsavedChanges: () => Promise<0 | 1 | 2>;
     confirmClose: (shouldClose: boolean) => Promise<void>;
     quit: () => Promise<void>;

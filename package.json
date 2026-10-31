@@ -6,7 +6,7 @@
     "dev": "next dev",
     "electron:dev": "concurrently -k \"next dev -H 127.0.0.1 -p 3000\" \"wait-on http://127.0.0.1:3000 && electron .\"",
     "build": "next build",
-    "build:desktop": "next build && node scripts/prepare-electron-server.cjs",
+    "build:desktop": "node scripts/build-desktop.cjs",
     "start": "next start",
     "electron:start": "electron .",
     "electron:package": "npm run build:desktop && electron-builder",
@@ -20,7 +20,7 @@
     "test:e2e:headed": "npm run build && playwright test --headed",
     "verify": "npm run lint && npm run typecheck && npm run test:unit && npm run test:e2e"
   },
-  "dependencies": {
+  "devDependencies": {
     "@monaco-editor/react": "^4.7.0",
     "@sparticuz/chromium": "^143.0.4",
     "@types/dompurify": "^3.0.5",
@@ -50,9 +50,7 @@
     "react-dom": "^18",
     "tailwind-merge": "^3.4.0",
     "turndown": "^7.2.2",
-    "zustand": "^5.0.10"
-  },
-  "devDependencies": {
+    "zustand": "^5.0.10",
     "@playwright/test": "^1.58.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -82,14 +80,18 @@
     "asar": true,
     "files": [
       "electron/**/*",
-      ".next/**/*",
-      "public/**/*",
       "package.json"
     ],
-    "extraResources": [
+    "extraFiles": [
       {
         "from": ".next/standalone",
-        "to": "next-server"
+        "to": "resources/next-server",
+        "filter": ["**/*"]
+      },
+      {
+        "from": ".next/standalone/node_modules",
+        "to": "resources/next-server/node_modules",
+        "filter": ["**/*"]
       }
     ],
     "directories": {

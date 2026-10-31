@@ -49,6 +49,7 @@ function resetStore() {
 describe("Navbar", () => {
   beforeEach(() => {
     resetStore();
+    delete window.dillingerDesktop;
     vi.clearAllMocks();
     vi.restoreAllMocks();
   });
@@ -341,6 +342,59 @@ describe("Navbar", () => {
         expect(mockAnchor.click).toHaveBeenCalled();
       });
       expect(mockAnchor.download).toBe("Test Document.pdf");
+      expect(mockNotify).toHaveBeenCalledWith("Exported as PDF");
+    });
+
+    it("uses native PDF printing in the desktop app", async () => {
+      const user = userEvent.setup();
+      const printPdf = vi.fn().mockResolvedValue({
+        filePath: "C:/Documents/Test Document.pdf",
+        fileName: "Test Document.pdf",
+      });
+      Object.defineProperty(window, "dillingerDesktop", {
+        configurable: true,
+        value: {
+          isDesktop: true,
+          platform: "win32",
+          openFile: vi.fn(),
+          saveFile: vi.fn(),
+          writeFile: vi.fn(),
+          printPdf,
+          confirmUnsavedChanges: vi.fn(),
+          confirmClose: vi.fn(),
+          quit: vi.fn(),
+          onMenuAction: vi.fn(() => vi.fn()),
+          onRequestClose: vi.fn(() => vi.fn()),
+        },
+      });
+      const htmlResponse = new Response("<html>styled document</html>", { status: 200 });
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(htmlResponse);
+      render(<Navbar />);
+
+      await user.click(screen.getByRole("button", { name: "Export document" }));
+      await user.click(screen.getByRole("menuitem", { name: /PDF/ }));
+
+      await waitFor(() => {
+        expect(globalThis.fetch).toHaveBeenCalledWith("/api/export/html", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            markdown: "# Hello World",
+            title: "Test Document",
+            styled: true,
+          }),
+        });
+      });
+      await waitFor(() => {
+        expect(printPdf).toHaveBeenCalledWith({
+          html: "<html>styled document</html>",
+          fileName: "Test_Document.pdf",
+        });
+      });
+      expect(globalThis.fetch).not.toHaveBeenCalledWith(
+        "/api/export/pdf",
+        expect.anything()
+      );
       expect(mockNotify).toHaveBeenCalledWith("Exported as PDF");
     });
 

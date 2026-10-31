@@ -5,6 +5,7 @@ import { useStore } from "@/stores/store";
 import { useToast } from "@/components/ui/Toast";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { importDocumentFile } from "@/lib/import";
+import { getExportFilename } from "@/lib/export";
 import { getDesktopBridge } from "@/lib/desktop";
 import {
   Menu,
@@ -90,6 +91,31 @@ export function Navbar() {
     try {
       notify(`Preparing ${formatLabel}...`);
 
+      if (format === "pdf" && desktop) {
+        const response = await fetch("/api/export/html", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            markdown: currentDocument.body,
+            title: currentDocument.title,
+            styled: true,
+          }),
+        });
+
+        if (!response.ok) throw new Error("Export failed");
+
+        const html = await response.text();
+        const saved = await desktop.printPdf({
+          html,
+          fileName: getExportFilename(currentDocument.title, "pdf"),
+        });
+
+        if (!saved) return;
+
+        notify("Exported as PDF");
+        return;
+      }
+
       const response = await fetch(`/api/export/${format}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -125,7 +151,7 @@ export function Navbar() {
         notify(`${formatLabel} export failed — please try again`);
       }
     }
-  }, [currentDocument, notify]);
+  }, [currentDocument, desktop, notify]);
 
   const handleImportSelection = useCallback(async (
     event: React.ChangeEvent<HTMLInputElement>

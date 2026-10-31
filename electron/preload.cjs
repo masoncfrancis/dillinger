@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld("dillingerDesktop", {
   openFile: () => ipcRenderer.invoke("file:open"),
   saveFile: (request) => ipcRenderer.invoke("file:save", request),
   writeFile: (request) => ipcRenderer.invoke("file:write", request),
+  printPdf: (request) => ipcRenderer.invoke("file:print-pdf", request),
   confirmUnsavedChanges: () => ipcRenderer.invoke("app:confirm-unsaved-changes"),
   confirmClose: (shouldClose) => ipcRenderer.invoke("app:confirm-close", shouldClose),
   quit: () => ipcRenderer.invoke("app:quit"),

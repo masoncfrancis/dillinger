@@ -1,5 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, Menu, shell } = require("electron");
-const { spawn } = require("node:child_process");
+const { app, BrowserWindow, dialog, ipcMain, Menu, shell, utilityProcess } = require("electron");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const http = require("node:http");
@@ -241,16 +240,16 @@ function waitForServer(url, timeoutMs = 30_000) {
 
 async function startProductionServer() {
   const serverPath = getProductionServerPath();
-  nextServer = spawn(process.execPath, [serverPath], {
+  nextServer = utilityProcess.fork(serverPath, [], {
     cwd: path.dirname(serverPath),
     env: {
       ...process.env,
-      ELECTRON_RUN_AS_NODE: "1",
       HOSTNAME: "127.0.0.1",
       PORT: String(DESKTOP_PORT),
       NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || DESKTOP_URL,
     },
     stdio: "pipe",
+    serviceName: "Next.js server",
   });
 
   nextServer.stderr.on("data", (chunk) => {

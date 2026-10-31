@@ -340,6 +340,19 @@ describe("useStore", () => {
   });
 
   describe("hydrate", () => {
+    it("keeps sidebar closed on first visit in desktop app", () => {
+      Object.defineProperty(window, "dillingerDesktop", {
+        configurable: true,
+        value: { isDesktop: true },
+      });
+
+      useStore.getState().hydrate();
+
+      expect(useStore.getState().sidebarOpen).toBe(false);
+
+      delete window.dillingerDesktop;
+    });
+
     it("restores documents from localStorage", () => {
       const doc = createTestDocument({ id: "stored-1", title: "Stored.md" });
       localStorage.setItem("files", JSON.stringify([doc]));

@@ -2,6 +2,9 @@
   "name": "dillinger",
   "version": "0.2.0",
   "private": true,
+  "description": "Cloud-enabled Markdown editor",
+  "author": "Dillinger Team <support@dillinger.io>",
+  "desktopName": "Dillinger",
   "scripts": {
     "dev": "next dev",
     "electron:dev": "concurrently -k \"next dev -H 127.0.0.1 -p 3000\" \"wait-on http://127.0.0.1:3000 && electron .\"",
@@ -10,6 +13,9 @@
     "start": "next start",
     "electron:start": "electron .",
     "electron:package": "npm run build:desktop && electron-builder",
+    "electron:package:win": "npm run build:desktop && electron-builder --win",
+    "electron:package:mac": "npm run build:desktop && electron-builder --mac",
+    "electron:package:linux": "npm run build:desktop && electron-builder --linux",
     "start:test": "next start -H 127.0.0.1 -p 3005",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
@@ -77,6 +83,7 @@
   "build": {
     "appId": "io.dillinger.editor",
     "productName": "Dillinger",
+    "icon": "public/icon-512x512.png",
     "asar": true,
     "files": [
       "electron/**/*",
@@ -101,11 +108,13 @@
       "target": "nsis"
     },
     "mac": {
-      "target": "dmg"
+      "target": ["dmg", "zip"]
     },
     "linux": {
-      "target": "AppImage",
-      "category": "Office"
+      "target": ["AppImage", "deb"],
+      "category": "Office",
+      "icon": "public/icon-512x512.png",
+      "maintainer": "Dillinger Team <support@dillinger.io>"
     },
     "fileAssociations": [
       {

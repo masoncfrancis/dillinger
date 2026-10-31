@@ -55,11 +55,23 @@ The Electron shell runs the same editor in a native desktop window:
 npm run electron:dev
 ```
 
-Create a Windows installer with:
+Create an installer for current host platform with:
 
 ```bash
 npm run electron:package
 ```
+
+Build a specific platform explicitly:
+
+```bash
+npm run electron:package:win
+npm run electron:package:mac
+npm run electron:package:linux
+```
+
+Artifacts are written to `release/`. macOS builds currently produce DMG and
+ZIP files. Linux builds produce AppImage and DEB files. Production macOS
+distribution still requires Apple signing and notarization credentials.
 
 The desktop shell provides secure native Open, Save, and Save As dialogs for
 Markdown, text, and HTML files. Cloud integrations continue to use the
@@ -234,7 +246,10 @@ npm start
 npm run dev              # Start dev server
 npm run electron:dev     # Start the Electron development shell
 npm run build            # Production build
-npm run electron:package # Build desktop installers
+npm run electron:package       # Build installer for current host platform
+npm run electron:package:win   # Build Windows NSIS installer
+npm run electron:package:mac   # Build macOS DMG and ZIP
+npm run electron:package:linux # Build Linux AppImage and DEB
 npm start                # Start production server
 npm run lint             # ESLint
 npm run test             # Unit + E2E tests

@@ -1,0 +1,54 @@
+name: Desktop Builds
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Build ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows
+            runner: windows-latest
+            command: npm run electron:package:win
+            artifact: windows
+          - platform: macos
+            runner: macos-latest
+            command: npm run electron:package:mac
+            artifact: macos
+          - platform: linux
+            runner: ubuntu-latest
+            command: npm run electron:package:linux
+            artifact: linux
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Package desktop app
+        run: ${{ matrix.command }}
+
+      - name: Upload installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dillinger-${{ matrix.artifact }}
+          path: release/*
+          if-no-files-found: error

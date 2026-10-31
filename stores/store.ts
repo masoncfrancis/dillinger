@@ -252,6 +252,7 @@ export const useStore = create<AppState>((set, get) => ({
       const settings: UserSettings = settingsJson
         ? { ...DEFAULT_SETTINGS, ...JSON.parse(settingsJson) }
         : DEFAULT_SETTINGS;
+      const isDesktop = Boolean(window.dillingerDesktop?.isDesktop);
 
       // Ensure at least one document exists
       if (documents.length === 0) {
@@ -265,7 +266,13 @@ export const useStore = create<AppState>((set, get) => ({
         currentDocument = documents[0];
       }
 
-      set({ documents, currentDocument, settings, isDirty: false, sidebarOpen: isFirstVisit });
+      set({
+        documents,
+        currentDocument,
+        settings,
+        isDirty: false,
+        sidebarOpen: isFirstVisit && !isDesktop,
+      });
     } catch (e) {
       console.error("Failed to hydrate state:", e);
     }
